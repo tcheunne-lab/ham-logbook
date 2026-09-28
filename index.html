@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Ham LogBook</title>
+  <!-- Tailwind CSS CDN per interfaccia mobile-first -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    /* Ottimizzazioni touch per smartphone */
+    input, select, textarea { font-size: 16px !important; } /* Previene lo zoom su iOS */
+    .pb-safe { padding-bottom: env(safe-area-inset-bottom, 1rem); }
+  </style>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col font-sans select-none">
+
+  <!-- HEADER -->
+  <header class="bg-slate-800 border-b border-slate-700 px-4 py-3 sticky top-0 z-50 flex justify-between items-center shadow-md">
+    <div class="flex items-center space-x-2">
+      <i class="fa-solid fa-tower-broadcast text-sky-400 text-xl"></i>
+      <span class="font-bold text-lg tracking-wider text-white">HAM LOG</span>
+    </div>
+    <div id="utc-clock" class="text-xs font-mono bg-slate-950 px-2 py-1 rounded border border-slate-700 text-sky-300 font-semibold">
+      00:00:00 UTC
+    </div>
+  </header>
+
+  <!-- CONTENUTO PRINCIPALE -->
+  <main class="flex-1 overflow-y-auto p-4 pb-24">
+
+    <!-- 1. SCHERMATA: NUOVO QSO -->
+    <section id="tab-qso" class="space-y-4">
+      <div class="bg-slate-800 p-4 rounded-xl border border-slate-700 shadow-sm space-y-4">
+        
+        <!-- Callsign (Grande) -->
+        <div>
+          <label class="block text-xs font-bold uppercase text-slate-400 mb-1">Nominativo (Callsign)*</label>
+          <input type="text" id="qso-call" placeholder="es. IX1IXG" 
+                 class="w-full bg-slate-950 border border-slate-600 rounded-lg px-3 py-2.5 text-xl font-mono font-bold tracking-widest text-sky-400 uppercase focus:outline-none focus:border-sky-500">
+        </div>
+
+        <!-- Frequenza, Modo, Banda -->
+        <div class="grid grid-cols-3 gap-2">
+          <div class="col-span-1">
+            <label class="block text-xs font-bold uppercase text-slate-400 mb-1">Freq (MHz)*</label>
+            <input type="number" step="0.001" id="qso-freq" placeholder="145.500" 
+                   class="w-full bg-slate-950 border border-slate-600 rounded-lg px-2 py-2 text-sm font-mono focus:outline-none focus:border-sky-500">
+          </div>
+          <div>
+            <label class="block text-xs font-bold uppercase text-slate-400 mb-1">Modo*</label>
+            <select id="qso-mode" class="w-full bg-slate-950 border border-slate-600 rounded-lg px-2 py-2 text-sm focus:outline-none focus:border-sky-500">
+              <option value="FM">FM</option>
+              <option value="SSB">SSB</option>
+              <option value="CW">CW</option>
+              <option value="USB">USB</option>
+              <option value="LSB">LSB</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-bold uppercase text-slate-400 mb-1">Banda</label>
+            <input type="text" id="qso-band" placeholder="2M" readonly 
+                   class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-2 text-sm text-center font-bold text-slate-400">
+          </div>
+        </div>
+
+        <!-- RST Dato / Ricevuto -->
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-bold uppercase text-slate-400 mb-1">RST Dato</label>
+            <input type="text" id="qso-rst-s" value="59" 
+                   class="w-full bg-slate-950 border border-slate-600 rounded-lg px-3 py-1.5 text-center font-mono focus:outline-none focus:border-sky-500">
+          </div>
+          <div>
+            <label class="block text-xs font-bold uppercase text-slate-400 mb-1">RST Ricevuto</label>
+            <input type="text" id="qso-rst-r" value="59" 
+                   class="w-full bg-slate-950 border border-slate-600 rounded-lg px-3 py-1.5 text-center font-mono focus:outline-none focus:border-sky-500">
+          </div>
+        </div>
+
+        <!-- Dettagli Espandibili -->
+        <details class="group border-t border-slate-700 pt-2">
+          <summary class="flex justify-between items-center cursor-pointer text-xs font-bold uppercase text-sky-400 py-1">
+            <span>+ Dettagli Corrispondente</span>
+            <i class="fa-solid fa-chevron-down group-open:rotate-180 transition-transform"></i>
+          </summary>
+          <div class="space-y-3 pt-3">
+            <div class="grid grid-cols-2 gap-2">
+              <div>
+                <label class="block text-xs text-slate-400 mb-1">Nome</label>
+                <input type="text" id="qso-name" placeholder="Mario" class="w-full bg-slate-950 border border-slate-600 rounded px-2 py-1.5 text-sm uppercase">
+              </div>
+              <div>
+                <label class="block text-xs text-slate-400 mb-1">Locator RX</label>
+                <input type="text" id="qso-loc" placeholder="JN35XX" class="w-full bg-slate-950 border border-slate-600 rounded px-2 py-1.5 text-sm uppercase font-mono">
+              </div>
+            </div>
+            <div class="grid grid-cols-2 gap-2">
+              <div>
+                <label class="block text-xs text-slate-400 mb-1">QTH</label>
+                <input type="text" id="qso-qth" placeholder="Aosta" class="w-full bg-slate-950 border border-slate-600 rounded px-2 py-1.5 text-sm uppercase">
+              </div>
+              <div>
+                <label class="block text-xs text-slate-400 mb-1">Country</label>
+                <input type="text" id="qso-country" value="ITALIA" class="w-full bg-slate-950 border border-slate-600 rounded px-2 py-1.5 text-sm uppercase">
+              </div>
+            </div>
+            <div>
+              <label class="block text-xs text-slate-400 mb-1">Ponte / Ripetitore</label>
+              <input type="text" id="qso-repeater" placeholder="es. R4A o IR1DD" class="w-full bg-slate-950 border border-slate-600 rounded px-2 py-1.5 text-sm uppercase">
+            </div>
+            <div>
+              <label class="block text-xs text-slate-400 mb-1">Commenti / Note</label>
+              <textarea id="qso-comments" rows="2" placeholder="Note sul collegamento..." class="w-full bg-slate-950 border border-slate-600 rounded px-2 py-1 text-sm"></textarea>
+            </div>
+          </div>
+        </details>
+
+        <!-- Bottone Salva -->
+        <button onclick="saveQSO()" id="btn-save" class="w-full bg-sky-600 hover:bg-sky-500 active:bg-sky-700 text-white font-bold py-3.5 rounded-xl shadow-lg flex items-center justify-center space-x-2 transition-all">
+          <i class="fa-solid fa-floppy-disk text-lg"></i>
+          <span>SALVA QSO (UTC)</span>
+        </button>
+
+      </div>
+    </section>
+
+    <!-- 2. SCHERMATA: LOGBOOK -->
+    <section id="tab-log" class="hidden space-y-3">
+      <div class="flex justify-between items-center mb-2">
+        <h2 class="text-sm font-bold uppercase tracking-wider text-slate-400">Ultimi QSO Registrati</h2>
+        <button onclick="loadLogs()" class="text-sky-400 hover:text-sky-300 text-sm flex items-center space-x-1">
+          <i class="fa-solid fa-rotate"></i> <span>Aggiorna</span>
+        </button>
+      </div>
+
+      <div id="log-list" class="space-y-2">
+        <!-- I record del log verranno generati dinamicamente qui -->
+        <div class="text-center text-slate-500 py-8 text-sm">Caricamento in corso...</div>
+      </div>
+    </section>
+
+    <!-- 3. SCHERMATA: SETUP SESSIONE -->
+    <section id="tab-setup" class="hidden space-y-4">
+      <div class="bg-slate-800 p-4 rounded-xl border border-slate-700 space-y-3">
+        <h2 class="text-sm font-bold uppercase tracking-wider text-amber-400 border-b border-slate-700 pb-2">
+          Parametri Stazione (Sessione)
+        </h2>
+        <p class="text-xs text-slate-400">Questi dati verranno inseriti automaticamente in tutti i QSO salvati.</p>
+
+        <div>
+          <label class="block text-xs font-bold uppercase text-slate-400 mb-1">My QTH</label>
+          <input type="text" id="my-qth" placeholder="es. Becca di Viou" class="w-full bg-slate-950 border border-slate-600 rounded px-3 py-2 text-sm uppercase">
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="block text-xs font-bold uppercase text-slate-400 mb-1">My Locator</label>
+            <input type="text" id="my-loc" placeholder="JN35QT" class="w-full bg-slate-950 border border-slate-600 rounded px-3 py-2 text-sm uppercase font-mono">
+          </div>
+          <div>
+            <label class="block text-xs font-bold uppercase text-slate-400 mb-1">Ref. SOTA</label>
+            <input type="text" id="my-sota" placeholder="I/VA-098" class="w-full bg-slate-950 border border-slate-600 rounded px-3 py-2 text-sm uppercase font-mono">
+          </div>
+        </div>
+        <div class="grid grid-cols-3 gap-2">
+          <div>
+            <label class="block text-xs font-bold uppercase text-slate-400 mb-1">RTX</label>
+            <input type="text" id="my-rtx" placeholder="FT-817" class="w-full bg-slate-950 border border-slate-600 rounded px-2 py-2 text-sm uppercase">
+          </div>
+          <div>
+            <label class="block text-xs font-bold uppercase text-slate-400 mb-1">Antenna</label>
+            <input type="text" id="my-ant" placeholder="Yagi 4el" class="w-full bg-slate-950 border border-slate-600 rounded px-2 py-2 text-sm uppercase">
+          </div>
+          <div>
+            <label class="block text-xs font-bold uppercase text-slate-400 mb-1">Pwr (W)</label>
+            <input type="text" id="my-pwr" placeholder="5" class="w-full bg-slate-950 border border-slate-600 rounded px-2 py-2 text-sm text-center">
+          </div>
+        </div>
+        <div>
+          <label class="block text-xs font-bold uppercase text-slate-400 mb-1">Meteo & Temp</label>
+          <input type="text" id="my-wx" placeholder="es. SUNNY 12°C" class="w-full bg-slate-950 border border-slate-600 rounded px-3 py-2 text-sm">
+        </div>
+
+        <button onclick="saveSessionSettings()" class="w-full mt-2 bg-slate-700 hover:bg-slate-600 font-bold py-2 rounded text-sm text-sky-400 border border-slate-600">
+          Memorizza Dati Sessione
+        </button>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- BOTTOM NAVIGATION BAR -->
+  <nav class="fixed bottom-0 left-0 right-0 bg-slate-800 border-t border-slate-700 flex justify-around py-2 z-50 pb-safe">
+    <button onclick="switchTab('qso')" id="nav-qso" class="flex flex-col items-center text-sky-400 w-1/3">
+      <i class="fa-solid fa-microphone text-lg"></i>
+      <span class="text-[10px] font-bold mt-1 uppercase tracking-wider">Nuovo QSO</span>
+    </button>
+    <button onclick="switchTab('log')" id="nav-log" class="flex flex-col items-center text-slate-400 w-1/3">
+      <i class="fa-solid fa-list text-lg"></i>
+      <span class="text-[10px] font-bold mt-1 uppercase tracking-wider">Logbook</span>
+    </button>
+    <button onclick="switchTab('setup')" id="nav-setup" class="flex flex-col items-center text-slate-400 w-1/3">
+      <i class="fa-solid fa-sliders text-lg"></i>
+      <span class="text-[10px] font-bold mt-1 uppercase tracking-wider">Setup</span>
+    </button>
+  </nav>
+
+  <!-- JAVASCRIPT LOGIC -->
+  <script>
+    // ==========================================
+    // INSERISCI QUI SOTTO IL TUO URL GOOGLE APPS SCRIPT
+    // ==========================================
+    const SCRIPT_URL = "INSERISCI_QUI_IL_TUO_URL_APPS_SCRIPT";
+
+    // 1. OROLOGIO UTC IN TEMPO REALE
+    function updateClock() {
+      const now = new Date();
+      const h = String(now.getUTCHours()).padStart(2, '0');
+      const m = String(now.getUTCMinutes()).padStart(2, '0');
+      const s = String(now.getUTCSeconds()).padStart(2, '0');
+      document.getElementById('utc-clock').textContent = `${h}:${m}:${s} UTC`;
+    }
+    setInterval(updateClock, 1000);
+    updateClock();
+
+    // 2. AUTO-CALCOLO BANDA DA FREQUENZA
+    document.getElementById('qso-freq').addEventListener('input', (e) => {
+      const f = parseFloat(e.target.value);
+      const bandInput = document.getElementById('qso-band');
+      if (!f) { bandInput.value = ""; return; }
+
+      if (f >= 1.8 && f <= 2.0) bandInput.value = "160M";
+      else if (f >= 3.5 && f <= 3.8) bandInput.value = "80M";
+      else if (f >= 7.0 && f <= 7.2) bandInput.value = "40M";
+      else if (f >= 10.1 && f <= 10.15) bandInput.value = "30M";
+      else if (f >= 14.0 && f <= 14.35) bandInput.value = "20M";
+      else if (f >= 18.068 && f <= 18.168) bandInput.value = "17M";
+      else if (f >= 21.0 && f <= 21.45) bandInput.value = "15M";
+      else if (f >= 24.89 && f <= 24.99) bandInput.value = "12M";
+      else if (f >= 28.0 && f <= 29.7) bandInput.value = "10M";
+      else if (f >= 144.0 && f <= 146.0) bandInput.value = "2M";
+      else if (f >= 430.0 && f <= 440.0) bandInput.value = "70cM";
+      else bandInput.value = "ALTRO";
+    });
+
+    // 3. AUTO-RST BASATO SUL MODO
+    document.getElementById('qso-mode').addEventListener('change', (e) => {
+      const isCW = e.target.value === "CW";
+      document.getElementById('qso-rst-s').value = isCW ? "599" : "59";
+      document.getElementById('qso-rst-r').value = isCW ? "599" : "59";
+    });
+
+    // 4. NAVIGAZIONE TABS
+    function switchTab(tab) {
+      document.getElementById('tab-qso').classList.add('hidden');
+      document.getElementById('tab-log').classList.add('hidden');
+      document.getElementById('tab-setup').classList.add('hidden');
+
+      document.getElementById('nav-qso').className = "flex flex-col items-center text-slate-400 w-1/3";
+      document.getElementById('nav-log').className = "flex flex-col items-center text-slate-400 w-1/3";
+      document.getElementById('nav-setup').className = "flex flex-col items-center text-slate-400 w-1/3";
+
+      document.getElementById(`tab-${tab}`).classList.remove('hidden');
+      document.getElementById(`nav-${tab}`).className = "flex flex-col items-center text-sky-400 w-1/3";
+
+      if (tab === 'log') loadLogs();
+    }
+
+    // 5. GESTIONE IMPOSTAZIONI DI SESSIONE (LocalStorage)
+    function saveSessionSettings() {
+      const settings = {
+        myQth: document.getElementById('my-qth').value,
+        myLoc: document.getElementById('my-loc').value,
+        mySota: document.getElementById('my-sota').value,
+        myRtx: document.getElementById('my-rtx').value,
+        myAnt: document.getElementById('my-ant').value,
+        myPwr: document.getElementById('my-pwr').value,
+        myWx: document.getElementById('my-wx').value,
+      };
+      localStorage.setItem('ham_log_session', JSON.stringify(settings));
+      alert("Parametri sessione memorizzati!");
+    }
+
+    function loadSessionSettings() {
+      const saved = localStorage.getItem('ham_log_session');
+      if (saved) {
+        const s = JSON.parse(saved);
+        document.getElementById('my-qth').value = s.myQth || "";
+        document.getElementById('my-loc').value = s.myLoc || "";
+        document.getElementById('my-sota').value = s.mySota || "";
+        document.getElementById('my-rtx').value = s.myRtx || "";
+        document.getElementById('my-ant').value = s.myAnt || "";
+        document.getElementById('my-pwr').value = s.myPwr || "";
+        document.getElementById('my-wx').value = s.myWx || "";
+      }
+    }
+    loadSessionSettings();
+
+    // 6. SALVATAGGIO QSO (POST a Google Sheets)
+    async function saveQSO() {
+      const call = document.getElementById('qso-call').value.trim();
+      const freq = document.getElementById('qso-freq').value.trim();
+      
+      if (!call || !freq) {
+        alert("Inserisci almeno Nominativo e Frequenza!");
+        return;
+      }
+
+      const btn = document.getElementById('btn-save');
+      btn.disabled = true;
+      btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> <span>Salvataggio...</span>`;
+
+      // Recupera sessione
+      const session = JSON.parse(localStorage.getItem('ham_log_session') || '{}');
+
+      // Prepara payload
+      const payload = {
+        Callsign: call,
+        Freq: freq,
+        Modo: document.getElementById('qso-mode').value,
+        Banda: document.getElementById('qso-band').value,
+        RST_Dato: document.getElementById('qso-rst-s').value,
+        RST_Ric: document.getElementById('qso-rst-r').value,
+        Nome: document.getElementById('qso-name').value.trim(),
+        Locator_RX: document.getElementById('qso-loc').value.trim(),
+        QTH: document.getElementById('qso-qth').value.trim(),
+        Country: document.getElementById('qso-country').value.trim(),
+        Ripetitore: document.getElementById('qso-repeater').value.trim(),
+        Commenti: document.getElementById('qso-comments').value.trim(),
+        // Dati Stazione (Sessione)
+        My_QTH: session.myQth || "",
+        My_Locator: session.myLoc || "",
+        My_SOTA: session.mySota || "",
+        Rtx: session.myRtx || "",
+        Antenna: session.myAnt || "",
+        Pwr: session.myPwr || "",
+        Meteo: session.myWx || ""
+      };
+
+      try {
+        const response = await fetch(SCRIPT_URL, {
+          method: "POST",
+          body: JSON.stringify(payload)
+        });
+        const result = await response.json();
+
+        if (result.status === "success") {
+          // Reset form (tranne freq/modo per comodità)
+          document.getElementById('qso-call').value = "";
+          document.getElementById('qso-name').value = "";
+          document.getElementById('qso-loc').value = "";
+          document.getElementById('qso-qth').value = "";
+          document.getElementById('qso-comments').value = "";
+          alert(`QSO Registrato con successo (Prog. N. ${result.newId})`);
+        } else {
+          alert("Errore nel salvataggio: " + result.message);
+        }
+      } catch (err) {
+        alert("Errore di rete: controlla la connessione internet.");
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = `<i class="fa-solid fa-floppy-disk text-lg"></i> <span>SALVA QSO (UTC)</span>`;
+      }
+    }
+
+    // 7. LETTURA LOGBOOK (GET da Google Sheets)
+    async function loadLogs() {
+      const container = document.getElementById('log-list');
+      container.innerHTML = `<div class="text-center text-slate-500 py-8 text-sm"><i class="fa-solid fa-spinner fa-spin mr-2"></i>Caricamento QSO...</div>`;
+
+      try {
+        const res = await fetch(`${SCRIPT_URL}?limit=30`);
+        const json = await res.json();
+
+        if (json.status === "success" && json.data.length > 0) {
+          container.innerHTML = "";
+          json.data.forEach(qso => {
+            const card = document.createElement('div');
+            card.className = "bg-slate-800 p-3 rounded-lg border border-slate-700 text-sm space-y-1";
+            card.innerHTML = `
+              <div class="flex justify-between items-center font-mono">
+                <span class="font-bold text-base text-sky-400">${qso.Callsign || "---"}</span>
+                <span class="text-xs text-slate-400">${qso.Data || ""} ${qso.OraInizio || ""}z</span>
+              </div>
+              <div class="flex justify-between text-xs text-slate-300">
+                <span>${qso.Freq || "-"} MHz (${qso.Banda || "-"}) - ${qso.Modo || "-"}</span>
+                <span>RST: ${qso.RST_Dato || "-"}/${qso.RST_Ric || "-"}</span>
+              </div>
+              ${qso.Nome || qso.QTH ? `
+                <div class="text-[11px] text-slate-400 truncate">
+                  ${qso.Nome ? `<i class="fa-regular fa-user mr-1"></i>${qso.Nome}` : ""} 
+                  ${qso.QTH ? `<i class="fa-solid fa-location-dot ml-2 mr-1"></i>${qso.QTH}` : ""}
+                </div>` : ''}
+              ${qso.My_SOTA ? `
+                <div class="text-[10px] text-amber-400 font-mono">
+                  SOTA: ${qso.My_SOTA}
+                </div>` : ''}
+            `;
+            container.appendChild(card);
+          });
+        } else {
+          container.innerHTML = `<div class="text-center text-slate-500 py-8 text-sm">Nessun QSO trovato.</div>`;
+        }
+      } catch (err) {
+        container.innerHTML = `<div class="text-center text-rose-400 py-8 text-sm">Errore nel caricamento del log.</div>`;
+      }
+    }
+  </script>
+</body>
+</html>
