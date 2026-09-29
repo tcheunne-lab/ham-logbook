@@ -8,8 +8,11 @@
   <!-- Manifest PWA -->
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#0f172a">
-  <link rel="icon" href="data:,">
+  <link rel="icon" href="icons/icon-192.png" type="image/png">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
   <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="HamLog">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
   <!-- Tailwind CSS & FontAwesome -->
@@ -1192,6 +1195,11 @@
       if (s.myDate) { $('qso-date').value = s.myDate; updateDateBadge(); }
     })();
     updateModeUI();
+    // Service worker: richiesto da Chrome per l'installazione come app
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+    }
+
     // Senza PIN salvato chiede l'accesso; altrimenti scarica l'archivio in background
     // (serve per avviso doppioni e modifica). Un PIN non più valido riapre la schermata.
     if (getPin()) fetchLogs().catch(() => {});
