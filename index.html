@@ -258,9 +258,14 @@
           <input type="text" id="my-wx" placeholder="es. SUNNY 12°C" class="w-full bg-slate-950 border border-slate-600 rounded px-3 py-2 text-sm">
         </div>
 
-        <button onclick="saveSessionSettings()" class="w-full mt-2 bg-slate-700 hover:bg-slate-600 font-bold py-2.5 rounded-lg text-sm text-sky-400 border border-slate-600 transition-colors">
-          Salva Parametri Sessione
-        </button>
+        <div class="grid grid-cols-3 gap-2 mt-2">
+          <button onclick="saveSessionSettings()" class="col-span-2 bg-slate-700 hover:bg-slate-600 font-bold py-2.5 rounded-lg text-sm text-sky-400 border border-slate-600 transition-colors">
+            Salva Parametri Sessione
+          </button>
+          <button onclick="clearSessionSettings()" class="bg-slate-900 hover:bg-rose-900/40 font-bold py-2.5 rounded-lg text-sm text-rose-400 border border-rose-900 transition-colors">
+            Cancella
+          </button>
+        </div>
       </div>
     </section>
 
@@ -533,6 +538,13 @@
         updateDupeHint();
       }
       showToast("Parametri sessione salvati");
+    }
+
+    function clearSessionSettings() {
+      ['my-date', 'my-qth', 'my-loc', 'my-sota', 'my-rtx', 'my-ant', 'my-pwr', 'my-wx']
+        .forEach((id) => { $(id).value = ""; });
+      localStorage.removeItem('ham_log_session');
+      showToast("Parametri sessione cancellati");
     }
 
     function loadSessionSettings() {
