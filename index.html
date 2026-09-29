@@ -34,8 +34,13 @@
       <i class="fa-solid fa-tower-broadcast text-sky-400 text-xl"></i>
       <span class="font-bold text-lg tracking-wider text-white">HAM LOG</span>
     </div>
-    <div id="utc-clock" class="text-xs font-mono bg-slate-950 px-2 py-1 rounded border border-slate-700 text-sky-300 font-semibold">
-      00:00:00 UTC
+    <div class="flex items-center gap-1.5">
+      <div id="local-clock" class="text-xs font-mono bg-slate-950 px-2 py-1 rounded border border-slate-700 text-slate-300 font-semibold">
+        00:00:00 LOC
+      </div>
+      <div id="utc-clock" class="text-xs font-mono bg-slate-950 px-2 py-1 rounded border border-slate-700 text-sky-300 font-semibold">
+        00:00:00 UTC
+      </div>
     </div>
   </header>
 
@@ -387,6 +392,12 @@
       const m = String(now.getUTCMinutes()).padStart(2, '0');
       const s = String(now.getUTCSeconds()).padStart(2, '0');
       $('utc-clock').textContent = `${h}:${m}:${s} UTC`;
+
+      // Ora locale del dispositivo (gestisce da sola ora legale/solare)
+      const lh = String(now.getHours()).padStart(2, '0');
+      const lm = String(now.getMinutes()).padStart(2, '0');
+      const ls = String(now.getSeconds()).padStart(2, '0');
+      $('local-clock').textContent = `${lh}:${lm}:${ls} LOC`;
     }
     setInterval(updateClock, 1000);
     updateClock();
