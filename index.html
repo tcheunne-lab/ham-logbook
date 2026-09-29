@@ -4,21 +4,23 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Ham LogBook</title>
-  
+
   <!-- Manifest PWA -->
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#0f172a">
-  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
   <!-- Tailwind CSS & FontAwesome -->
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  
+
   <style>
     /* Previene lo zoom automatico al tocco su iOS */
     input, select, textarea { font-size: 16px !important; }
     .pb-safe { padding-bottom: env(safe-area-inset-bottom, 1.25rem); }
+    /* Permette la selezione del testo nei campi anche con select-none sul body */
+    input, textarea { user-select: text; -webkit-user-select: text; }
   </style>
 </head>
 <body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col font-sans select-none">
@@ -34,35 +36,50 @@
     </div>
   </header>
 
+  <!-- TOAST -->
+  <div id="toast" class="fixed top-16 left-1/2 -translate-x-1/2 z-[60] px-4 py-2 rounded-lg text-sm font-bold shadow-lg hidden max-w-[90%] text-center"></div>
+
   <!-- CONTENUTO PRINCIPALE -->
   <main class="flex-1 overflow-y-auto p-4 pb-24">
 
     <!-- ============================================== -->
     <!-- 1. TAB: NUOVO QSO -->
     <!-- ============================================== -->
-    <section id="tab-qso" class="space-y-4">
+    <section id="tab-qso" class="space-y-3">
+
+      <!-- Banner modalità modifica -->
+      <div id="edit-banner" class="hidden bg-amber-500/10 border border-amber-500/40 text-amber-300 rounded-lg px-3 py-2 text-xs flex justify-between items-center">
+        <span id="edit-banner-text" class="font-bold"></span>
+        <button type="button" onclick="cancelEdit()" class="font-bold underline">Annulla modifica</button>
+      </div>
+
       <div class="bg-slate-800 p-4 rounded-xl border border-slate-700 shadow-sm space-y-4">
-        
+
         <!-- Callsign Corrispondente -->
         <div>
           <label class="block text-xs font-bold uppercase text-slate-400 mb-1">Nominativo (Callsign)*</label>
-          <input type="text" id="qso-call" placeholder="es. IX1IXG" autocapitalize="characters" autocomplete="off"
+          <input type="text" id="qso-call" placeholder="es. IX1IXG" autocapitalize="characters" autocomplete="off" autocorrect="off" spellcheck="false"
                  class="w-full bg-slate-950 border border-slate-600 rounded-lg px-3 py-2.5 text-xl font-mono font-bold tracking-widest text-sky-400 uppercase focus:outline-none focus:border-sky-500">
+          <p id="dupe-hint" class="hidden text-[11px] font-bold mt-1"></p>
         </div>
 
         <!-- Data e Ora Inizio UTC -->
         <div class="grid grid-cols-2 gap-2">
           <div>
-            <label class="block text-xs font-bold uppercase text-slate-400 mb-1">Data (UTC)*</label>
-            <input type="date" id="qso-date" 
+            <div class="flex justify-between items-center mb-1">
+              <label class="text-xs font-bold uppercase text-slate-400">Data (UTC)*</label>
+              <span id="date-badge" class="hidden text-[10px] font-bold uppercase text-amber-400">data passata</span>
+            </div>
+            <input type="date" id="qso-date"
                    class="w-full bg-slate-950 border border-slate-600 rounded-lg px-2 py-2 text-sm font-mono text-slate-200 focus:outline-none focus:border-sky-500">
           </div>
           <div>
             <div class="flex justify-between items-center mb-1">
-              <label class="text-xs font-bold uppercase text-slate-400">Ora Inizio (UTC)*</label>
+              <label class="text-xs font-bold uppercase text-slate-400">Ora (UTC)*</label>
               <button type="button" onclick="setNowUTC()" class="text-[10px] text-sky-400 font-bold uppercase hover:underline">Adesso</button>
             </div>
-            <input type="time" id="qso-time" 
+            <input type="text" id="qso-time" inputmode="numeric" maxlength="5" placeholder="1435" autocomplete="off"
+                   onblur="formatTimeField(this)"
                    class="w-full bg-slate-950 border border-slate-600 rounded-lg px-2 py-2 text-sm font-mono text-slate-200 focus:outline-none focus:border-sky-500">
           </div>
         </div>
@@ -71,7 +88,7 @@
         <div class="grid grid-cols-3 gap-2">
           <div class="col-span-1">
             <label class="block text-xs font-bold uppercase text-slate-400 mb-1">Freq (MHz)*</label>
-            <input type="text" inputmode="decimal" id="qso-freq" placeholder="145.500" 
+            <input type="text" inputmode="decimal" id="qso-freq" placeholder="145.500"
                    onblur="formatFrequency(this)"
                    class="w-full bg-slate-950 border border-slate-600 rounded-lg px-2 py-2 text-sm font-mono focus:outline-none focus:border-sky-500">
           </div>
@@ -87,27 +104,34 @@
           </div>
           <div>
             <label class="block text-xs font-bold uppercase text-slate-400 mb-1">Banda</label>
-            <input type="text" id="qso-band" placeholder="2M" readonly 
+            <input type="text" id="qso-band" placeholder="2M" readonly
                    class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-2 text-sm text-center font-bold text-slate-400">
           </div>
+        </div>
+
+        <!-- Ponte / Ripetitore (solo FM) -->
+        <div id="repeater-wrap">
+          <label class="block text-xs font-bold uppercase text-slate-400 mb-1">Ponte / Ripetitore</label>
+          <input type="text" id="qso-repeater" placeholder="es. R4A o IR1DD" autocomplete="off"
+                 class="w-full bg-slate-950 border border-slate-600 rounded-lg px-3 py-2 text-sm uppercase focus:outline-none focus:border-sky-500">
         </div>
 
         <!-- RST Dato / Ricevuto -->
         <div class="grid grid-cols-2 gap-3">
           <div>
             <label class="block text-xs font-bold uppercase text-slate-400 mb-1">RST Dato</label>
-            <input type="text" id="qso-rst-s" value="59" 
+            <input type="text" id="qso-rst-s" value="59" inputmode="numeric"
                    class="w-full bg-slate-950 border border-slate-600 rounded-lg px-3 py-1.5 text-center font-mono focus:outline-none focus:border-sky-500">
           </div>
           <div>
             <label class="block text-xs font-bold uppercase text-slate-400 mb-1">RST Ricevuto</label>
-            <input type="text" id="qso-rst-r" value="59" 
+            <input type="text" id="qso-rst-r" value="59" inputmode="numeric"
                    class="w-full bg-slate-950 border border-slate-600 rounded-lg px-3 py-1.5 text-center font-mono focus:outline-none focus:border-sky-500">
           </div>
         </div>
 
         <!-- Dettagli Opzionali Espandibili -->
-        <details class="group border-t border-slate-700 pt-2">
+        <details id="details-extra" class="group border-t border-slate-700 pt-2">
           <summary class="flex justify-between items-center cursor-pointer text-xs font-bold uppercase text-sky-400 py-1">
             <span>+ Dettagli Corrispondente</span>
             <i class="fa-solid fa-chevron-down group-open:rotate-180 transition-transform"></i>
@@ -116,26 +140,22 @@
             <div class="grid grid-cols-2 gap-2">
               <div>
                 <label class="block text-xs text-slate-400 mb-1">Nome</label>
-                <input type="text" id="qso-name" placeholder="Mario" class="w-full bg-slate-950 border border-slate-600 rounded px-2 py-1.5 text-sm uppercase">
+                <input type="text" id="qso-name" placeholder="Mario" autocomplete="off" class="w-full bg-slate-950 border border-slate-600 rounded px-2 py-1.5 text-sm uppercase">
               </div>
               <div>
                 <label class="block text-xs text-slate-400 mb-1">Locator RX</label>
-                <input type="text" id="qso-loc" placeholder="JN35XX" class="w-full bg-slate-950 border border-slate-600 rounded px-2 py-1.5 text-sm uppercase font-mono">
+                <input type="text" id="qso-loc" placeholder="JN35XX" autocomplete="off" class="w-full bg-slate-950 border border-slate-600 rounded px-2 py-1.5 text-sm uppercase font-mono">
               </div>
             </div>
             <div class="grid grid-cols-2 gap-2">
               <div>
                 <label class="block text-xs text-slate-400 mb-1">QTH</label>
-                <input type="text" id="qso-qth" placeholder="Aosta" class="w-full bg-slate-950 border border-slate-600 rounded px-2 py-1.5 text-sm uppercase">
+                <input type="text" id="qso-qth" placeholder="Aosta" autocomplete="off" class="w-full bg-slate-950 border border-slate-600 rounded px-2 py-1.5 text-sm uppercase">
               </div>
               <div>
                 <label class="block text-xs text-slate-400 mb-1">Country</label>
-                <input type="text" id="qso-country" value="ITALIA" class="w-full bg-slate-950 border border-slate-600 rounded px-2 py-1.5 text-sm uppercase">
+                <input type="text" id="qso-country" value="ITALIA" autocomplete="off" class="w-full bg-slate-950 border border-slate-600 rounded px-2 py-1.5 text-sm uppercase">
               </div>
-            </div>
-            <div>
-              <label class="block text-xs text-slate-400 mb-1">Ponte / Ripetitore</label>
-              <input type="text" id="qso-repeater" placeholder="es. R4A o IR1DD" class="w-full bg-slate-950 border border-slate-600 rounded px-2 py-1.5 text-sm uppercase">
             </div>
             <div>
               <label class="block text-xs text-slate-400 mb-1">Commenti / Note</label>
@@ -179,6 +199,14 @@
         </h2>
         <p class="text-xs text-slate-400">Compila questi dati a inizio escursione/attivazione: verranno associati a ogni QSO.</p>
 
+        <div>
+          <label class="block text-xs font-bold uppercase text-slate-400 mb-1">Data sessione (UTC)</label>
+          <div class="flex gap-2">
+            <input type="date" id="my-date" class="flex-1 bg-slate-950 border border-slate-600 rounded px-3 py-2 text-sm font-mono text-slate-200">
+            <button type="button" onclick="document.getElementById('my-date').value=''" class="px-3 text-xs font-bold text-slate-400 border border-slate-600 rounded">Svuota</button>
+          </div>
+          <p class="text-[11px] text-slate-500 mt-1">Se impostata, i nuovi QSO partono con questa data. Utile quando trascrivi un'uscita in differita.</p>
+        </div>
         <div>
           <label class="block text-xs font-bold uppercase text-slate-400 mb-1">My QTH</label>
           <input type="text" id="my-qth" placeholder="es. Becca di Viou" class="w-full bg-slate-950 border border-slate-600 rounded px-3 py-2 text-sm uppercase">
@@ -243,8 +271,16 @@
         <span id="modal-call" class="font-bold text-lg text-sky-400 font-sans">---</span>
         <button onclick="closeModal()" class="text-slate-400 hover:text-white text-base"><i class="fa-solid fa-xmark"></i></button>
       </div>
-      <div id="modal-body" class="space-y-1.5 text-slate-300 max-h-80 overflow-y-auto">
-        <!-- Dati generati da JS -->
+      <div id="modal-body" class="space-y-1.5 text-slate-300 max-h-72 overflow-y-auto">
+        <!-- Dati inseriti da JS -->
+      </div>
+      <div class="grid grid-cols-2 gap-2 pt-2 border-t border-slate-700 font-sans">
+        <button onclick="startEditFromModal()" class="bg-sky-600 hover:bg-sky-500 text-white font-bold py-2.5 rounded-lg text-sm">
+          <i class="fa-solid fa-pen mr-1"></i> Modifica
+        </button>
+        <button onclick="deleteFromModal()" id="btn-delete" class="bg-slate-900 hover:bg-rose-900/40 text-rose-400 border border-rose-900 font-bold py-2.5 rounded-lg text-sm">
+          <i class="fa-solid fa-trash mr-1"></i> Elimina
+        </button>
       </div>
     </div>
   </div>
@@ -252,36 +288,105 @@
   <!-- LOGICA JAVASCRIPT -->
   <script>
     // =========================================================================
-    // ⚠️ INCOLLA QUI IL TUO URL DI GOOGLE APPS SCRIPT (CHE FINISCE CON /exec)
+    // URL GOOGLE APPS SCRIPT COLLEGATO
     // =========================================================================
     const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxqpRPF1goHy-LEn93rdmvC1jUTyTERobrojbCj1tVKa79XyV4kwSZ77mQRaYMsLoAC/exec";
 
+    // Quanti QSO scaricare dal foglio (usati per archivio, modifica e controllo doppioni)
+    const LOG_LIMIT = 200;
+
+    // Campi del form che vengono azzerati dopo ogni salvataggio (dati del corrispondente)
+    const CLEAR_AFTER_SAVE = ['qso-call', 'qso-name', 'qso-loc', 'qso-qth', 'qso-comments'];
+    // Tutti i campi del form (per snapshot e ripristino)
+    const FORM_FIELDS = [
+      'qso-call', 'qso-date', 'qso-time', 'qso-freq', 'qso-mode', 'qso-band',
+      'qso-rst-s', 'qso-rst-r', 'qso-repeater', 'qso-name', 'qso-loc', 'qso-qth',
+      'qso-country', 'qso-comments'
+    ];
+
+    const $ = (id) => document.getElementById(id);
+    const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => (
+      { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
+    ));
+
+    let currentLogs = [];      // cache locale: più recenti in cima
+    let editingN = null;       // progressivo del QSO in modifica (null = nuovo QSO)
+    let formSnapshot = null;   // stato del form prima di entrare in modifica
+    let modalN = null;         // progressivo del QSO aperto nel modal
+
+    // -------------------------------------------------------------------------
+    // TOAST
+    // -------------------------------------------------------------------------
+    let toastTimer = null;
+    function showToast(msg, type = 'ok') {
+      const t = $('toast');
+      t.textContent = msg;
+      t.className = 'fixed top-16 left-1/2 -translate-x-1/2 z-[60] px-4 py-2 rounded-lg text-sm font-bold shadow-lg max-w-[90%] text-center ' +
+        (type === 'error' ? 'bg-rose-600 text-white' : 'bg-emerald-600 text-white');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => t.classList.add('hidden'), type === 'error' ? 4000 : 1800);
+    }
+
+    // -------------------------------------------------------------------------
     // 1. OROLOGIO UTC IN HEADER
+    // -------------------------------------------------------------------------
     function updateClock() {
       const now = new Date();
       const h = String(now.getUTCHours()).padStart(2, '0');
       const m = String(now.getUTCMinutes()).padStart(2, '0');
       const s = String(now.getUTCSeconds()).padStart(2, '0');
-      document.getElementById('utc-clock').textContent = `${h}:${m}:${s} UTC`;
+      $('utc-clock').textContent = `${h}:${m}:${s} UTC`;
     }
     setInterval(updateClock, 1000);
     updateClock();
 
-    // 2. IMPOSTAZIONE DATA E ORA UTC CORRENTI
+    // -------------------------------------------------------------------------
+    // 2. DATA E ORA
+    // -------------------------------------------------------------------------
+    function todayUTC() {
+      const now = new Date();
+      return `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}-${String(now.getUTCDate()).padStart(2, '0')}`;
+    }
+
     function setNowUTC() {
       const now = new Date();
-      const yyyy = now.getUTCFullYear();
-      const mm = String(now.getUTCMonth() + 1).padStart(2, '0');
-      const dd = String(now.getUTCDate()).padStart(2, '0');
-      const hh = String(now.getUTCHours()).padStart(2, '0');
-      const min = String(now.getUTCMinutes()).padStart(2, '0');
-
-      document.getElementById('qso-date').value = `${yyyy}-${mm}-${dd}`;
-      document.getElementById('qso-time').value = `${hh}:${min}`;
+      $('qso-date').value = todayUTC();
+      $('qso-time').value = `${String(now.getUTCHours()).padStart(2, '0')}:${String(now.getUTCMinutes()).padStart(2, '0')}`;
+      updateDateBadge();
+      updateDupeHint();
     }
-    setNowUTC();
 
-    // 3. FORMATTAZIONE FREQUENZA A 3 DECIMALI
+    // Accetta "1435", "935", "14:35", "9:5" e restituisce "HH:MM" oppure null se non valida
+    function normalizeTime(raw) {
+      const s = String(raw || '').trim();
+      let h, m;
+      if (s.includes(':')) {
+        const parts = s.split(':');
+        h = parseInt(parts[0], 10);
+        m = parseInt(parts[1], 10);
+      } else {
+        const d = s.replace(/\D/g, '');
+        if (d.length === 3) { h = parseInt(d.slice(0, 1), 10); m = parseInt(d.slice(1), 10); }
+        else if (d.length === 4) { h = parseInt(d.slice(0, 2), 10); m = parseInt(d.slice(2), 10); }
+        else return null;
+      }
+      if (isNaN(h) || isNaN(m) || h < 0 || h > 23 || m < 0 || m > 59) return null;
+      return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+    }
+
+    function formatTimeField(input) {
+      const n = normalizeTime(input.value);
+      if (n) input.value = n;
+    }
+
+    function updateDateBadge() {
+      const d = $('qso-date').value;
+      $('date-badge').classList.toggle('hidden', !d || d === todayUTC());
+    }
+
+    // -------------------------------------------------------------------------
+    // 3. FREQUENZA E BANDA
+    // -------------------------------------------------------------------------
     function formatFrequency(input) {
       let val = input.value.trim().replace(',', '.');
       let num = parseFloat(val);
@@ -289,15 +394,16 @@
         input.value = num.toFixed(3);
         calculateBand(num);
       }
+      updateDupeHint();
     }
 
-    // 4. CALCOLO BANDA DA FREQUENZA
     function calculateBand(f) {
-      const bandInput = document.getElementById('qso-band');
+      const bandInput = $('qso-band');
       if (isNaN(f)) { bandInput.value = ""; return; }
 
       if (f >= 1.8 && f <= 2.0) bandInput.value = "160M";
       else if (f >= 3.5 && f <= 3.8) bandInput.value = "80M";
+      else if (f >= 5.3 && f <= 5.41) bandInput.value = "60M";
       else if (f >= 7.0 && f <= 7.2) bandInput.value = "40M";
       else if (f >= 10.1 && f <= 10.15) bandInput.value = "30M";
       else if (f >= 14.0 && f <= 14.35) bandInput.value = "20M";
@@ -305,214 +411,463 @@
       else if (f >= 21.0 && f <= 21.45) bandInput.value = "15M";
       else if (f >= 24.89 && f <= 24.99) bandInput.value = "12M";
       else if (f >= 28.0 && f <= 29.7) bandInput.value = "10M";
+      else if (f >= 50.0 && f <= 54.0) bandInput.value = "6M";
       else if (f >= 144.0 && f <= 146.0) bandInput.value = "2M";
       else if (f >= 430.0 && f <= 440.0) bandInput.value = "70cM";
+      else if (f >= 1240.0 && f <= 1300.0) bandInput.value = "23cM";
       else bandInput.value = "ALTRO";
     }
 
-    document.getElementById('qso-freq').addEventListener('input', (e) => {
-      let val = e.target.value.replace(',', '.');
-      let num = parseFloat(val);
+    $('qso-freq').addEventListener('input', (e) => {
+      const num = parseFloat(e.target.value.replace(',', '.'));
       if (!isNaN(num)) calculateBand(num);
+      updateDupeHint();
     });
 
-    // 5. RST BASATO SUL MODO
-    document.getElementById('qso-mode').addEventListener('change', (e) => {
+    // -------------------------------------------------------------------------
+    // 4. MODO: RST DI DEFAULT E VISIBILITÀ PONTE
+    // -------------------------------------------------------------------------
+    function updateModeUI() {
+      $('repeater-wrap').classList.toggle('hidden', $('qso-mode').value !== 'FM');
+    }
+
+    $('qso-mode').addEventListener('change', (e) => {
       const isCW = e.target.value === "CW";
-      document.getElementById('qso-rst-s').value = isCW ? "599" : "59";
-      document.getElementById('qso-rst-r').value = isCW ? "599" : "59";
+      $('qso-rst-s').value = isCW ? "599" : "59";
+      $('qso-rst-r').value = isCW ? "599" : "59";
+      updateModeUI();
+      updateDupeHint();
     });
 
+    $('qso-date').addEventListener('change', () => { updateDateBadge(); updateDupeHint(); });
+    $('qso-call').addEventListener('input', updateDupeHint);
+
+    // -------------------------------------------------------------------------
+    // 5. AVVISO DOPPIONI (basato sulla cache locale)
+    // -------------------------------------------------------------------------
+    function findSameCall(call) {
+      return currentLogs.filter((q) =>
+        String(q.Callsign || '').toUpperCase() === call &&
+        String(q['N.']) !== String(editingN)
+      );
+    }
+
+    function findDuplicates(call, date, band, mode) {
+      return findSameCall(call).filter((q) =>
+        String(q.Data) === date && String(q.Banda) === band && String(q.Modo) === mode
+      );
+    }
+
+    function updateDupeHint() {
+      const hint = $('dupe-hint');
+      const call = $('qso-call').value.trim().toUpperCase();
+      if (!call) { hint.classList.add('hidden'); return; }
+
+      const same = findSameCall(call);
+      if (!same.length) { hint.classList.add('hidden'); return; }
+
+      const dups = findDuplicates(call, $('qso-date').value, $('qso-band').value, $('qso-mode').value);
+      if (dups.length) {
+        hint.textContent = `Possibile doppione: stesso giorno, banda e modo (N. ${dups[0]['N.']})`;
+        hint.className = 'text-[11px] font-bold mt-1 text-amber-400';
+      } else {
+        hint.textContent = `Già ${same.length} QSO con ${call} (ultimo: ${same[0].Data || '-'} ${same[0].Banda || ''})`;
+        hint.className = 'text-[11px] font-bold mt-1 text-slate-400';
+      }
+    }
+
+    // -------------------------------------------------------------------------
     // 6. NAVIGAZIONE SCHEDE
+    // -------------------------------------------------------------------------
     function switchTab(tab) {
-      document.getElementById('tab-qso').classList.add('hidden');
-      document.getElementById('tab-log').classList.add('hidden');
-      document.getElementById('tab-setup').classList.add('hidden');
+      ['qso', 'log', 'setup'].forEach((t) => {
+        $(`tab-${t}`).classList.add('hidden');
+        $(`nav-${t}`).className = "flex flex-col items-center text-slate-400 w-1/3";
+      });
 
-      document.getElementById('nav-qso').className = "flex flex-col items-center text-slate-400 w-1/3";
-      document.getElementById('nav-log').className = "flex flex-col items-center text-slate-400 w-1/3";
-      document.getElementById('nav-setup').className = "flex flex-col items-center text-slate-400 w-1/3";
-
-      document.getElementById(`tab-${tab}`).classList.remove('hidden');
-      document.getElementById(`nav-${tab}`).className = "flex flex-col items-center text-sky-400 w-1/3";
+      $(`tab-${tab}`).classList.remove('hidden');
+      $(`nav-${tab}`).className = "flex flex-col items-center text-sky-400 w-1/3";
 
       if (tab === 'log') loadLogs();
     }
 
+    // -------------------------------------------------------------------------
     // 7. PARAMETRI SESSIONE (LOCAL STORAGE)
+    // -------------------------------------------------------------------------
     function saveSessionSettings() {
       const settings = {
-        myQth: document.getElementById('my-qth').value.trim(),
-        myLoc: document.getElementById('my-loc').value.trim(),
-        mySota: document.getElementById('my-sota').value.trim(),
-        myRtx: document.getElementById('my-rtx').value.trim(),
-        myAnt: document.getElementById('my-ant').value.trim(),
-        myPwr: document.getElementById('my-pwr').value.trim(),
-        myWx: document.getElementById('my-wx').value.trim(),
+        myDate: $('my-date').value,
+        myQth: $('my-qth').value.trim(),
+        myLoc: $('my-loc').value.trim(),
+        mySota: $('my-sota').value.trim(),
+        myRtx: $('my-rtx').value.trim(),
+        myAnt: $('my-ant').value.trim(),
+        myPwr: $('my-pwr').value.trim(),
+        myWx: $('my-wx').value.trim(),
       };
       localStorage.setItem('ham_log_session', JSON.stringify(settings));
-      alert("Parametri sessione salvati sullo smartphone!");
+
+      // La data di sessione diventa la data di partenza dei nuovi QSO
+      if (settings.myDate && editingN === null) {
+        $('qso-date').value = settings.myDate;
+        updateDateBadge();
+        updateDupeHint();
+      }
+      showToast("Parametri sessione salvati");
     }
 
     function loadSessionSettings() {
       const saved = localStorage.getItem('ham_log_session');
       if (saved) {
         const s = JSON.parse(saved);
-        document.getElementById('my-qth').value = s.myQth || "";
-        document.getElementById('my-loc').value = s.myLoc || "";
-        document.getElementById('my-sota').value = s.mySota || "";
-        document.getElementById('my-rtx').value = s.myRtx || "";
-        document.getElementById('my-ant').value = s.myAnt || "";
-        document.getElementById('my-pwr').value = s.myPwr || "";
-        document.getElementById('my-wx').value = s.myWx || "";
+        $('my-date').value = s.myDate || "";
+        $('my-qth').value = s.myQth || "";
+        $('my-loc').value = s.myLoc || "";
+        $('my-sota').value = s.mySota || "";
+        $('my-rtx').value = s.myRtx || "";
+        $('my-ant').value = s.myAnt || "";
+        $('my-pwr').value = s.myPwr || "";
+        $('my-wx').value = s.myWx || "";
       }
     }
-    loadSessionSettings();
 
-    // 8. SALVATAGGIO QSO (POST)
-    async function saveQSO() {
-      const call = document.getElementById('qso-call').value.trim();
-      const freqField = document.getElementById('qso-freq');
-      formatFrequency(freqField);
-      const freq = freqField.value.trim();
-      
-      if (!call || !freq) {
-        alert("Inserisci almeno Nominativo e Frequenza!");
-        return;
-      }
+    // -------------------------------------------------------------------------
+    // 8. SNAPSHOT DEL FORM (per uscire dalla modifica senza perdere il flusso)
+    // -------------------------------------------------------------------------
+    function getFormState() {
+      const state = {};
+      FORM_FIELDS.forEach((id) => { state[id] = $(id).value; });
+      return state;
+    }
 
-      const btn = document.getElementById('btn-save');
-      btn.disabled = true;
-      btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> <span>Salvataggio...</span>`;
+    function setFormState(state) {
+      FORM_FIELDS.forEach((id) => { if (id in state) $(id).value = state[id]; });
+      updateModeUI();
+      updateDateBadge();
+      updateDupeHint();
+    }
 
-      const session = JSON.parse(localStorage.getItem('ham_log_session') || '{}');
-
-      const payload = {
-        Callsign: call,
-        Data: document.getElementById('qso-date').value,
-        OraInizio: document.getElementById('qso-time').value,
-        Freq: freq,
-        Modo: document.getElementById('qso-mode').value,
-        Banda: document.getElementById('qso-band').value,
-        RST_Dato: document.getElementById('qso-rst-s').value,
-        RST_Ric: document.getElementById('qso-rst-r').value,
-        Nome: document.getElementById('qso-name').value.trim(),
-        Locator_RX: document.getElementById('qso-loc').value.trim(),
-        QTH: document.getElementById('qso-qth').value.trim(),
-        Country: document.getElementById('qso-country').value.trim(),
-        Ripetitore: document.getElementById('qso-repeater').value.trim(),
-        Commenti: document.getElementById('qso-comments').value.trim(),
-        My_QTH: session.myQth || "",
-        My_Locator: session.myLoc || "",
-        My_SOTA: session.mySota || "",
-        Rtx: session.myRtx || "",
-        Antenna: session.myAnt || "",
-        Pwr: session.myPwr || "",
-        Meteo: session.myWx || ""
-      };
-
-      try {
-        const response = await fetch(SCRIPT_URL, {
-          method: "POST",
-          body: JSON.stringify(payload)
-        });
-        const result = await response.json();
-
-        if (result.status === "success") {
-          document.getElementById('qso-call').value = "";
-          document.getElementById('qso-name').value = "";
-          document.getElementById('qso-loc').value = "";
-          document.getElementById('qso-qth').value = "";
-          document.getElementById('qso-comments').value = "";
-          setNowUTC();
-          alert(`QSO Registrato con successo (N. Prog: ${result.newId})`);
-        } else {
-          alert("Errore script: " + result.message);
-        }
-      } catch (err) {
-        alert("Errore di rete: impossibile contattare Google Sheets.");
-      } finally {
-        btn.disabled = false;
+    // -------------------------------------------------------------------------
+    // 9. MODALITÀ MODIFICA
+    // -------------------------------------------------------------------------
+    function setSaveButton(busy) {
+      const btn = $('btn-save');
+      btn.disabled = busy;
+      if (busy) {
+        btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> <span>Salvataggio...</span>`;
+      } else if (editingN !== null) {
+        btn.innerHTML = `<i class="fa-solid fa-check text-lg"></i> <span>AGGIORNA QSO N. ${esc(editingN)}</span>`;
+      } else {
         btn.innerHTML = `<i class="fa-solid fa-floppy-disk text-lg"></i> <span>SALVA QSO</span>`;
       }
     }
 
-    // 9. CONSULTAZIONE LOGBOOK (GET)
-    let currentLogs = [];
+    function enterEditMode(q) {
+      if (editingN === null) formSnapshot = getFormState();
+      editingN = q['N.'];
 
-    async function loadLogs() {
-      const container = document.getElementById('log-list');
-      container.innerHTML = `<div class="text-center text-slate-500 py-8 text-sm"><i class="fa-solid fa-spinner fa-spin mr-2"></i>Caricamento QSO...</div>`;
+      const freqNum = parseFloat(String(q.Freq ?? '').replace(',', '.'));
+      const s = (v) => String(v ?? '');
+
+      setFormState({
+        'qso-call': s(q.Callsign),
+        'qso-date': s(q.Data),
+        'qso-time': s(q.OraInizio),
+        'qso-freq': isNaN(freqNum) ? s(q.Freq) : freqNum.toFixed(3),
+        'qso-mode': s(q.Modo) || 'FM',
+        'qso-band': s(q.Banda),
+        'qso-rst-s': s(q.RST_Dato),
+        'qso-rst-r': s(q.RST_Ric),
+        'qso-repeater': s(q.Ripetitore),
+        'qso-name': s(q.Nome),
+        'qso-loc': s(q.Locator_RX),
+        'qso-qth': s(q.QTH),
+        'qso-country': s(q.Country),
+        'qso-comments': s(q.Commenti),
+      });
+
+      // Apre i dettagli se contengono dati
+      if (q.Nome || q.Locator_RX || q.QTH || q.Commenti) $('details-extra').open = true;
+
+      $('edit-banner-text').textContent = `Modifica QSO N. ${editingN}`;
+      $('edit-banner').classList.remove('hidden');
+      setSaveButton(false);
+      switchTab('qso');
+      window.scrollTo({ top: 0 });
+    }
+
+    function exitEditMode() {
+      editingN = null;
+      $('edit-banner').classList.add('hidden');
+      if (formSnapshot) setFormState(formSnapshot);
+      formSnapshot = null;
+      setSaveButton(false);
+    }
+
+    function cancelEdit() {
+      exitEditMode();
+    }
+
+    // -------------------------------------------------------------------------
+    // 10. CHIAMATE AL BACKEND
+    // -------------------------------------------------------------------------
+    async function postJSON(payload) {
+      // Nessun header Content-Type: resta "text/plain" ed evita il preflight CORS
+      const response = await fetch(SCRIPT_URL, { method: "POST", body: JSON.stringify(payload) });
+      return response.json();
+    }
+
+    // -------------------------------------------------------------------------
+    // 11. SALVATAGGIO / AGGIORNAMENTO QSO
+    // -------------------------------------------------------------------------
+    async function saveQSO() {
+      const call = $('qso-call').value.trim().toUpperCase();
+      const freqField = $('qso-freq');
+      formatFrequency(freqField);
+      const freq = freqField.value.trim();
+      const date = $('qso-date').value;
+      const time = normalizeTime($('qso-time').value);
+
+      if (!call || !freq) {
+        showToast("Inserisci almeno nominativo e frequenza", 'error');
+        return;
+      }
+      if (!date) {
+        showToast("Inserisci la data", 'error');
+        return;
+      }
+      if (!time) {
+        showToast("Ora non valida: usa il formato 1435", 'error');
+        $('qso-time').focus();
+        return;
+      }
+      $('qso-time').value = time;
+
+      const band = $('qso-band').value;
+      const mode = $('qso-mode').value;
+
+      const dups = findDuplicates(call, date, band, mode);
+      if (dups.length && !confirm(`Esiste già un QSO con ${call} in questo giorno, banda e modo (N. ${dups[0]['N.']}).\nSalvare comunque?`)) {
+        return;
+      }
+
+      const isEdit = editingN !== null;
+      setSaveButton(true);
+
+      const fields = {
+        Callsign: call,
+        Data: date,
+        OraInizio: time,
+        Freq: freq,
+        Modo: mode,
+        Banda: band,
+        RST_Dato: $('qso-rst-s').value.trim(),
+        RST_Ric: $('qso-rst-r').value.trim(),
+        Nome: $('qso-name').value.trim(),
+        Locator_RX: $('qso-loc').value.trim(),
+        QTH: $('qso-qth').value.trim(),
+        Country: $('qso-country').value.trim(),
+        Ripetitore: mode === 'FM' ? $('qso-repeater').value.trim() : '',
+        Commenti: $('qso-comments').value.trim(),
+      };
+
+      let payload;
+      if (isEdit) {
+        // In modifica non si toccano i dati stazione già registrati
+        payload = { action: 'update', 'N.': editingN, ...fields };
+      } else {
+        const session = JSON.parse(localStorage.getItem('ham_log_session') || '{}');
+        payload = {
+          action: 'add',
+          ...fields,
+          My_QTH: session.myQth || "",
+          My_Locator: session.myLoc || "",
+          My_SOTA: session.mySota || "",
+          Rtx: session.myRtx || "",
+          Antenna: session.myAnt || "",
+          Pwr: session.myPwr || "",
+          Meteo: session.myWx || ""
+        };
+      }
 
       try {
-        const res = await fetch(`${SCRIPT_URL}?limit=40`);
-        const json = await res.json();
+        const result = await postJSON(payload);
 
-        if (json.status === "success" && json.data.length > 0) {
-          currentLogs = json.data;
-          container.innerHTML = "";
-          json.data.forEach((qso, index) => {
-            const card = document.createElement('div');
-            card.className = "bg-slate-800 p-3 rounded-lg border border-slate-700 text-sm space-y-1 active:bg-slate-750 cursor-pointer";
-            card.onclick = () => openModal(index);
-            card.innerHTML = `
-              <div class="flex justify-between items-center font-mono">
-                <span class="font-bold text-base text-sky-400">${qso.Callsign || "---"}</span>
-                <span class="text-xs text-slate-400">${qso.Data || ""} ${qso.OraInizio || ""}z</span>
-              </div>
-              <div class="flex justify-between text-xs text-slate-300">
-                <span>${qso.Freq || "-"} MHz (${qso.Banda || "-"}) - ${qso.Modo || "-"}</span>
-                <span>RST: ${qso.RST_Dato || "-"}/${qso.RST_Ric || "-"}</span>
-              </div>
-              ${qso.Nome || qso.QTH ? `
-                <div class="text-[11px] text-slate-400 truncate">
-                  ${qso.Nome ? `<i class="fa-regular fa-user mr-1"></i>${qso.Nome}` : ""} 
-                  ${qso.QTH ? `<i class="fa-solid fa-location-dot ml-2 mr-1"></i>${qso.QTH}` : ""}
-                </div>` : ''}
-              ${qso.My_SOTA ? `
-                <div class="text-[10px] text-amber-400 font-mono">
-                  SOTA: ${qso.My_SOTA}
-                </div>` : ''}
-            `;
-            container.appendChild(card);
-          });
+        if (result.status !== "success") {
+          showToast("Errore script: " + result.message, 'error');
+          return;
+        }
+
+        if (isEdit) {
+          const idx = currentLogs.findIndex((q) => String(q['N.']) === String(editingN));
+          if (idx !== -1) Object.assign(currentLogs[idx], fields);
+          const n = editingN;
+          exitEditMode();
+          showToast(`QSO N. ${n} aggiornato`);
         } else {
-          container.innerHTML = `<div class="text-center text-slate-500 py-8 text-sm">Nessun QSO presente nel foglio.</div>`;
+          // Aggiunge subito alla cache locale così il controllo doppioni è immediato
+          const { action, ...record } = payload;
+          currentLogs.unshift({ 'N.': result.newId, ...record });
+          // Svuota solo i dati del corrispondente: data, ora, freq, modo, RST, ponte e country restano
+          CLEAR_AFTER_SAVE.forEach((id) => { $(id).value = ""; });
+          $('details-extra').open = false;
+          $('dupe-hint').classList.add('hidden');
+          showToast(`QSO N. ${result.newId} registrato`);
+          $('qso-call').focus();
         }
       } catch (err) {
-        container.innerHTML = `<div class="text-center text-rose-400 py-8 text-sm">Errore nel caricamento del log.</div>`;
+        showToast("Errore di rete: QSO non salvato", 'error');
+      } finally {
+        setSaveButton(false);
       }
     }
 
-    // 10. MODAL DETTAGLIO QSO
-    function openModal(index) {
-      const q = currentLogs[index];
-      if (!q) return;
+    // Invio = salva (tranne nelle note, nei pulsanti e nel riepilogo dettagli)
+    $('tab-qso').addEventListener('keydown', (e) => {
+      if (e.key !== 'Enter') return;
+      const tag = e.target.tagName;
+      if (tag === 'TEXTAREA' || tag === 'BUTTON' || tag === 'SUMMARY') return;
+      e.preventDefault();
+      saveQSO();
+    });
 
-      document.getElementById('modal-call').textContent = q.Callsign;
-      const body = document.getElementById('modal-body');
-      body.innerHTML = `
-        <p><strong class="text-slate-400">Prog N.:</strong> ${q['N.'] || '-'}</p>
-        <p><strong class="text-slate-400">Data/Ora:</strong> ${q.Data || ''} ${q.OraInizio || ''}z</p>
-        <p><strong class="text-slate-400">Freq/Banda:</strong> ${q.Freq || '-'} MHz (${q.Banda || '-'})</p>
-        <p><strong class="text-slate-400">Modo:</strong> ${q.Modo || '-'}</p>
-        <p><strong class="text-slate-400">RST:</strong> Dato: ${q.RST_Dato || '-'} | Ric: ${q.RST_Ric || '-'}</p>
-        <p><strong class="text-slate-400">Nome/QTH:</strong> ${q.Nome || '-'} - ${q.QTH || '-'} (${q.Country || '-'})</p>
-        <p><strong class="text-slate-400">Locator RX:</strong> ${q.Locator_RX || '-'}</p>
-        <p><strong class="text-slate-400">Ripetitore:</strong> ${q.Ripetitore || '-'}</p>
-        <p><strong class="text-slate-400">My QTH/Loc:</strong> ${q.My_QTH || '-'} (${q.My_Locator || '-'})</p>
-        <p><strong class="text-slate-400">My SOTA:</strong> ${q.My_SOTA || '-'}</p>
-        <p><strong class="text-slate-400">Rig/Pwr:</strong> ${q.Rtx || '-'} - ${q.Pwr || '-'}W</p>
-        <p><strong class="text-slate-400">Antenna:</strong> ${q.Antenna || '-'}</p>
-        <p><strong class="text-slate-400">Meteo:</strong> ${q.Meteo || '-'}</p>
-        <p><strong class="text-slate-400">Commenti:</strong> ${q.Commenti || '-'}</p>
+    // -------------------------------------------------------------------------
+    // 12. CONSULTAZIONE LOGBOOK (GET)
+    // -------------------------------------------------------------------------
+    async function fetchLogs() {
+      const res = await fetch(`${SCRIPT_URL}?limit=${LOG_LIMIT}`);
+      const json = await res.json();
+      if (json.status !== "success") throw new Error(json.message || "Errore");
+      currentLogs = json.data;
+      updateDupeHint();
+    }
+
+    function renderLogs() {
+      const container = $('log-list');
+
+      if (!currentLogs.length) {
+        container.innerHTML = `<div class="text-center text-slate-500 py-8 text-sm">Nessun QSO presente nel foglio.</div>`;
+        return;
+      }
+
+      container.innerHTML = "";
+      currentLogs.forEach((qso) => {
+        const card = document.createElement('div');
+        card.className = "bg-slate-800 p-3 rounded-lg border border-slate-700 text-sm space-y-1 cursor-pointer";
+        card.onclick = () => openModal(qso['N.']);
+        card.innerHTML = `
+          <div class="flex justify-between items-center font-mono">
+            <span class="font-bold text-base text-sky-400">${esc(qso.Callsign) || "---"}</span>
+            <span class="text-xs text-slate-400">${esc(qso.Data)} ${esc(qso.OraInizio)}z</span>
+          </div>
+          <div class="flex justify-between text-xs text-slate-300">
+            <span>${esc(qso.Freq) || "-"} MHz (${esc(qso.Banda) || "-"}) - ${esc(qso.Modo) || "-"}</span>
+            <span>RST: ${esc(qso.RST_Dato) || "-"}/${esc(qso.RST_Ric) || "-"}</span>
+          </div>
+          ${qso.Nome || qso.QTH ? `
+            <div class="text-[11px] text-slate-400 truncate">
+              ${qso.Nome ? `<i class="fa-regular fa-user mr-1"></i>${esc(qso.Nome)}` : ""}
+              ${qso.QTH ? `<i class="fa-solid fa-location-dot ml-2 mr-1"></i>${esc(qso.QTH)}` : ""}
+            </div>` : ''}
+          ${qso.My_SOTA ? `
+            <div class="text-[10px] text-amber-400 font-mono">
+              SOTA: ${esc(qso.My_SOTA)}
+            </div>` : ''}
+        `;
+        container.appendChild(card);
+      });
+    }
+
+    async function loadLogs() {
+      $('log-list').innerHTML = `<div class="text-center text-slate-500 py-8 text-sm"><i class="fa-solid fa-spinner fa-spin mr-2"></i>Caricamento QSO...</div>`;
+      try {
+        await fetchLogs();
+        renderLogs();
+      } catch (err) {
+        $('log-list').innerHTML = `<div class="text-center text-rose-400 py-8 text-sm">Errore nel caricamento del log.</div>`;
+      }
+    }
+
+    // -------------------------------------------------------------------------
+    // 13. MODAL DETTAGLIO QSO
+    // -------------------------------------------------------------------------
+    function findByN(n) {
+      return currentLogs.find((q) => String(q['N.']) === String(n));
+    }
+
+    function openModal(n) {
+      const q = findByN(n);
+      if (!q) return;
+      modalN = q['N.'];
+
+      $('modal-call').textContent = q.Callsign || '---';
+      $('modal-body').innerHTML = `
+        <p><strong class="text-slate-400">Prog N.:</strong> ${esc(q['N.']) || '-'}</p>
+        <p><strong class="text-slate-400">Data/Ora:</strong> ${esc(q.Data)} ${esc(q.OraInizio)}z</p>
+        <p><strong class="text-slate-400">Freq/Banda:</strong> ${esc(q.Freq) || '-'} MHz (${esc(q.Banda) || '-'})</p>
+        <p><strong class="text-slate-400">Modo:</strong> ${esc(q.Modo) || '-'}</p>
+        <p><strong class="text-slate-400">RST:</strong> Dato: ${esc(q.RST_Dato) || '-'} | Ric: ${esc(q.RST_Ric) || '-'}</p>
+        <p><strong class="text-slate-400">Nome/QTH:</strong> ${esc(q.Nome) || '-'} - ${esc(q.QTH) || '-'} (${esc(q.Country) || '-'})</p>
+        <p><strong class="text-slate-400">Locator RX:</strong> ${esc(q.Locator_RX) || '-'}</p>
+        <p><strong class="text-slate-400">Ripetitore:</strong> ${esc(q.Ripetitore) || '-'}</p>
+        <p><strong class="text-slate-400">My QTH/Loc:</strong> ${esc(q.My_QTH) || '-'} (${esc(q.My_Locator) || '-'})</p>
+        <p><strong class="text-slate-400">My SOTA:</strong> ${esc(q.My_SOTA) || '-'}</p>
+        <p><strong class="text-slate-400">Rig/Pwr:</strong> ${esc(q.Rtx) || '-'} - ${esc(q.Pwr) || '-'}W</p>
+        <p><strong class="text-slate-400">Antenna:</strong> ${esc(q.Antenna) || '-'}</p>
+        <p><strong class="text-slate-400">Meteo:</strong> ${esc(q.Meteo) || '-'}</p>
+        <p><strong class="text-slate-400">Commenti:</strong> ${esc(q.Commenti) || '-'}</p>
       `;
-      document.getElementById('qso-modal').classList.remove('hidden');
+      $('qso-modal').classList.remove('hidden');
     }
 
     function closeModal() {
-      document.getElementById('qso-modal').classList.add('hidden');
+      $('qso-modal').classList.add('hidden');
+      modalN = null;
     }
+
+    function startEditFromModal() {
+      const q = findByN(modalN);
+      if (!q) return;
+      closeModal();
+      enterEditMode(q);
+    }
+
+    async function deleteFromModal() {
+      const q = findByN(modalN);
+      if (!q) return;
+      if (!confirm(`Eliminare il QSO N. ${q['N.']} con ${q.Callsign}?\nL'operazione non si può annullare.`)) return;
+
+      const btn = $('btn-delete');
+      btn.disabled = true;
+      try {
+        const result = await postJSON({ action: 'delete', 'N.': q['N.'] });
+        if (result.status === "success") {
+          currentLogs = currentLogs.filter((x) => String(x['N.']) !== String(q['N.']));
+          closeModal();
+          renderLogs();
+          showToast(`QSO N. ${q['N.']} eliminato`);
+        } else {
+          showToast("Errore script: " + result.message, 'error');
+        }
+      } catch (err) {
+        showToast("Errore di rete: QSO non eliminato", 'error');
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    // -------------------------------------------------------------------------
+    // AVVIO
+    // -------------------------------------------------------------------------
+    loadSessionSettings();
+    setNowUTC();
+    (function applySessionDate() {
+      const s = JSON.parse(localStorage.getItem('ham_log_session') || '{}');
+      if (s.myDate) { $('qso-date').value = s.myDate; updateDateBadge(); }
+    })();
+    updateModeUI();
+    // Scarica l'archivio in background: serve per avviso doppioni e modifica
+    fetchLogs().catch(() => {});
   </script>
 </body>
 </html>
