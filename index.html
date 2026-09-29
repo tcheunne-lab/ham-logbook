@@ -22,6 +22,8 @@
     .pb-safe { padding-bottom: env(safe-area-inset-bottom, 1.25rem); }
     /* Permette la selezione del testo nei campi anche con select-none sul body */
     input, textarea { user-select: text; -webkit-user-select: text; }
+    /* Esempi nei campi vuoti: tenui e in corsivo, per distinguerli dai valori reali */
+    input::placeholder, textarea::placeholder { color: #64748b; font-style: italic; font-weight: 400; letter-spacing: normal; opacity: 1; }
   </style>
 </head>
 <body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col font-sans select-none">
@@ -79,7 +81,7 @@
               <label class="text-xs font-bold uppercase text-slate-400">Ora (UTC)*</label>
               <button type="button" onclick="setNowUTC()" class="text-[10px] text-sky-400 font-bold uppercase hover:underline">Adesso</button>
             </div>
-            <input type="text" id="qso-time" inputmode="numeric" maxlength="5" placeholder="1435" autocomplete="off"
+            <input type="text" id="qso-time" inputmode="numeric" maxlength="5" placeholder="es. 1435" autocomplete="off"
                    onblur="formatTimeField(this)"
                    class="w-full bg-slate-950 border border-slate-600 rounded-lg px-2 py-2 text-sm font-mono text-slate-200 focus:outline-none focus:border-sky-500">
           </div>
@@ -89,7 +91,7 @@
         <div class="grid grid-cols-3 gap-2">
           <div class="col-span-1">
             <label class="block text-xs font-bold uppercase text-slate-400 mb-1">Freq (MHz)*</label>
-            <input type="text" inputmode="decimal" id="qso-freq" placeholder="145.500"
+            <input type="text" inputmode="decimal" id="qso-freq" placeholder="es. 145.500"
                    onblur="formatFrequency(this)"
                    class="w-full bg-slate-950 border border-slate-600 rounded-lg px-2 py-2 text-sm font-mono focus:outline-none focus:border-sky-500">
           </div>
@@ -105,7 +107,7 @@
           </div>
           <div>
             <label class="block text-xs font-bold uppercase text-slate-400 mb-1">Banda</label>
-            <input type="text" id="qso-band" placeholder="2M" readonly
+            <input type="text" id="qso-band" placeholder="auto" readonly
                    class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-2 text-sm text-center font-bold text-slate-400">
           </div>
         </div>
@@ -141,17 +143,17 @@
             <div class="grid grid-cols-2 gap-2">
               <div>
                 <label class="block text-xs text-slate-400 mb-1">Nome</label>
-                <input type="text" id="qso-name" placeholder="Mario" autocomplete="off" class="w-full bg-slate-950 border border-slate-600 rounded px-2 py-1.5 text-sm uppercase">
+                <input type="text" id="qso-name" placeholder="es. Mario" autocomplete="off" class="w-full bg-slate-950 border border-slate-600 rounded px-2 py-1.5 text-sm uppercase">
               </div>
               <div>
                 <label class="block text-xs text-slate-400 mb-1">Locator RX</label>
-                <input type="text" id="qso-loc" placeholder="JN35XX" autocomplete="off" class="w-full bg-slate-950 border border-slate-600 rounded px-2 py-1.5 text-sm uppercase font-mono">
+                <input type="text" id="qso-loc" placeholder="es. JN35XX" autocomplete="off" class="w-full bg-slate-950 border border-slate-600 rounded px-2 py-1.5 text-sm uppercase font-mono">
               </div>
             </div>
             <div class="grid grid-cols-2 gap-2">
               <div>
                 <label class="block text-xs text-slate-400 mb-1">QTH</label>
-                <input type="text" id="qso-qth" placeholder="Aosta" autocomplete="off" class="w-full bg-slate-950 border border-slate-600 rounded px-2 py-1.5 text-sm uppercase">
+                <input type="text" id="qso-qth" placeholder="es. Aosta" autocomplete="off" class="w-full bg-slate-950 border border-slate-600 rounded px-2 py-1.5 text-sm uppercase">
               </div>
               <div>
                 <label class="block text-xs text-slate-400 mb-1">Country</label>
@@ -160,7 +162,7 @@
             </div>
             <div>
               <label class="block text-xs text-slate-400 mb-1">Commenti / Note</label>
-              <textarea id="qso-comments" rows="2" placeholder="Note sul collegamento..." class="w-full bg-slate-950 border border-slate-600 rounded px-2 py-1 text-sm"></textarea>
+              <textarea id="qso-comments" rows="2" placeholder="Note sul collegamento (facoltativo)" class="w-full bg-slate-950 border border-slate-600 rounded px-2 py-1 text-sm"></textarea>
             </div>
           </div>
         </details>
@@ -232,25 +234,25 @@
         <div class="grid grid-cols-2 gap-2">
           <div>
             <label class="block text-xs font-bold uppercase text-slate-400 mb-1">My Locator</label>
-            <input type="text" id="my-loc" placeholder="JN35QT" class="w-full bg-slate-950 border border-slate-600 rounded px-3 py-2 text-sm uppercase font-mono">
+            <input type="text" id="my-loc" placeholder="es. JN35QT" class="w-full bg-slate-950 border border-slate-600 rounded px-3 py-2 text-sm uppercase font-mono">
           </div>
           <div>
             <label class="block text-xs font-bold uppercase text-slate-400 mb-1">Ref. SOTA</label>
-            <input type="text" id="my-sota" placeholder="I/VA-098" class="w-full bg-slate-950 border border-slate-600 rounded px-3 py-2 text-sm uppercase font-mono">
+            <input type="text" id="my-sota" placeholder="es. I/VA-098" class="w-full bg-slate-950 border border-slate-600 rounded px-3 py-2 text-sm uppercase font-mono">
           </div>
         </div>
         <div class="grid grid-cols-3 gap-2">
           <div>
             <label class="block text-xs font-bold uppercase text-slate-400 mb-1">RTX</label>
-            <input type="text" id="my-rtx" placeholder="FT-817" class="w-full bg-slate-950 border border-slate-600 rounded px-2 py-2 text-sm uppercase">
+            <input type="text" id="my-rtx" placeholder="es. FT-817" class="w-full bg-slate-950 border border-slate-600 rounded px-2 py-2 text-sm uppercase">
           </div>
           <div>
             <label class="block text-xs font-bold uppercase text-slate-400 mb-1">Antenna</label>
-            <input type="text" id="my-ant" placeholder="Yagi 4el" class="w-full bg-slate-950 border border-slate-600 rounded px-2 py-2 text-sm uppercase">
+            <input type="text" id="my-ant" placeholder="es. Yagi" class="w-full bg-slate-950 border border-slate-600 rounded px-2 py-2 text-sm uppercase">
           </div>
           <div>
             <label class="block text-xs font-bold uppercase text-slate-400 mb-1">Pwr (W)</label>
-            <input type="text" id="my-pwr" placeholder="5" class="w-full bg-slate-950 border border-slate-600 rounded px-2 py-2 text-sm text-center">
+            <input type="text" id="my-pwr" placeholder="es. 5" class="w-full bg-slate-950 border border-slate-600 rounded px-2 py-2 text-sm text-center">
           </div>
         </div>
         <div>
