@@ -42,6 +42,24 @@
   <!-- TOAST -->
   <div id="toast" class="fixed top-16 left-1/2 -translate-x-1/2 z-[60] px-4 py-2 rounded-lg text-sm font-bold shadow-lg hidden max-w-[90%] text-center"></div>
 
+  <!-- SCHERMATA PIN -->
+  <div id="lock-screen" class="fixed inset-0 z-[100] bg-slate-900 hidden flex flex-col items-center justify-center p-6">
+    <i class="fa-solid fa-tower-broadcast text-sky-400 text-4xl mb-3"></i>
+    <h1 class="font-bold text-xl tracking-wider mb-6">HAM LOG</h1>
+    <div class="w-full max-w-xs space-y-3">
+      <label for="lock-pin" class="block text-xs font-bold uppercase text-slate-400">PIN di accesso</label>
+      <input type="password" id="lock-pin" inputmode="numeric" autocomplete="off" placeholder="Inserisci il PIN"
+             class="w-full bg-slate-950 border border-slate-600 rounded-lg px-3 py-3 text-center font-mono tracking-widest focus:outline-none focus:border-sky-500">
+      <label class="flex items-center gap-2 text-xs text-slate-400">
+        <input type="checkbox" id="lock-remember" checked class="accent-sky-500"> Ricorda su questo dispositivo
+      </label>
+      <p id="lock-error" class="hidden text-sm text-rose-400 font-bold"></p>
+      <button id="lock-btn" onclick="submitPin()" class="w-full bg-sky-600 hover:bg-sky-500 active:bg-sky-700 text-white font-bold py-3 rounded-xl">
+        Sblocca
+      </button>
+    </div>
+  </div>
+
   <!-- CONTENUTO PRINCIPALE -->
   <main class="flex-1 p-4 pb-24">
 
@@ -268,6 +286,14 @@
             Cancella
           </button>
         </div>
+      </div>
+    
+      <div class="bg-slate-800 p-4 rounded-xl border border-slate-700 space-y-2">
+        <h2 class="text-sm font-bold uppercase tracking-wider text-slate-400 border-b border-slate-700 pb-2">Accesso</h2>
+        <p class="text-xs text-slate-400">Il PIN è verificato dal server. Per cambiarlo modifica la proprietà PIN nello script.</p>
+        <button onclick="lockApp()" class="w-full bg-slate-700 hover:bg-slate-600 font-bold py-2.5 rounded-lg text-sm text-slate-200 border border-slate-600 transition-colors">
+          <i class="fa-solid fa-lock mr-1"></i> Blocca app
+        </button>
       </div>
     </section>
 
@@ -644,11 +670,89 @@
     // -------------------------------------------------------------------------
     // 10. CHIAMATE AL BACKEND
     // -------------------------------------------------------------------------
-    async function postJSON(payload) {
-      // Nessun header Content-Type: resta "text/plain" ed evita il preflight CORS
-      const response = await fetch(SCRIPT_URL, { method: "POST", body: JSON.stringify(payload) });
-      return response.json();
+    function getPin() {
+      return sessionStorage.getItem('ham_log_pin') || localStorage.getItem('ham_log_pin') || '';
     }
+
+    function clearPin() {
+      sessionStorage.removeItem('ham_log_pin');
+      localStorage.removeItem('ham_log_pin');
+    }
+
+    async function postJSON(payload, signal) {
+      // Nessun header Content-Type: resta "text/plain" ed evita il preflight CORS
+      const response = await fetch(SCRIPT_URL, {
+        method: "POST",
+        body: JSON.stringify({ ...payload, pin: getPin() }),
+        signal
+      });
+      const result = await response.json();
+
+      if (result.status !== "success" && ['auth', 'locked', 'config'].includes(result.code)) {
+        clearPin();
+        showLock(result.message);
+        const err = new Error(result.message);
+        err.auth = true;
+        throw err;
+      }
+      return result;
+    }
+
+    // -------------------------------------------------------------------------
+    // PIN: SCHERMATA DI BLOCCO
+    // -------------------------------------------------------------------------
+    function showLock(msg) {
+      const box = $('lock-error');
+      box.textContent = msg || '';
+      box.classList.toggle('hidden', !msg);
+      $('lock-btn').disabled = false;
+      $('lock-btn').textContent = 'Sblocca';
+      $('lock-screen').classList.remove('hidden');
+      $('lock-pin').value = '';
+      setTimeout(() => $('lock-pin').focus(), 50);
+    }
+
+    function hideLock() {
+      $('lock-screen').classList.add('hidden');
+      $('lock-pin').value = '';
+    }
+
+    async function submitPin() {
+      const pin = $('lock-pin').value.trim();
+      if (!pin) return;
+
+      const btn = $('lock-btn');
+      btn.disabled = true;
+      btn.textContent = 'Verifica...';
+
+      clearPin();
+      (($('lock-remember').checked) ? localStorage : sessionStorage).setItem('ham_log_pin', pin);
+
+      try {
+        await postJSON({ action: 'ping' });
+        hideLock();
+        fetchLogs().catch(() => {});
+      } catch (err) {
+        // Se è un errore di PIN, postJSON ha già mostrato il messaggio
+        if (!err.auth) {
+          clearPin();
+          showLock("Errore di rete: impossibile verificare il PIN");
+        }
+      }
+    }
+
+    function lockApp() {
+      clearPin();
+      currentLogs = [];
+      logsLoaded = false;
+      $('log-list').innerHTML = '';
+      switchTab('qso');
+      showLock('');
+    }
+
+    $('lock-pin').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); submitPin(); }
+    });
 
     // -------------------------------------------------------------------------
     // 11. SALVATAGGIO / AGGIORNAMENTO QSO
@@ -749,7 +853,7 @@
           $('qso-call').focus();
         }
       } catch (err) {
-        showToast("Errore di rete: QSO non salvato", 'error');
+        showToast(err.auth ? "App bloccata: inserisci il PIN e riprova" : "Errore di rete: QSO non salvato", 'error');
       } finally {
         setSaveButton(false);
       }
@@ -952,8 +1056,7 @@
       const ctrl = new AbortController();
       const timer = setTimeout(() => ctrl.abort(), 30000);
       try {
-        const res = await fetch(`${SCRIPT_URL}?limit=${LOG_LIMIT}`, { signal: ctrl.signal });
-        const json = await res.json();
+        const json = await postJSON({ action: 'list', limit: LOG_LIMIT }, ctrl.signal);
         if (json.status !== "success") throw new Error(json.message || "Errore");
         currentLogs = json.data;
         logsLoaded = true;
@@ -1062,7 +1165,7 @@
           showToast("Errore script: " + result.message, 'error');
         }
       } catch (err) {
-        showToast("Errore di rete: QSO non eliminato", 'error');
+        showToast(err.auth ? "App bloccata: inserisci il PIN e riprova" : "Errore di rete: QSO non eliminato", 'error');
       } finally {
         btn.disabled = false;
       }
@@ -1078,8 +1181,10 @@
       if (s.myDate) { $('qso-date').value = s.myDate; updateDateBadge(); }
     })();
     updateModeUI();
-    // Scarica l'archivio in background: serve per avviso doppioni e modifica
-    fetchLogs().catch(() => {});
+    // Senza PIN salvato chiede l'accesso; altrimenti scarica l'archivio in background
+    // (serve per avviso doppioni e modifica). Un PIN non più valido riapre la schermata.
+    if (getPin()) fetchLogs().catch(() => {});
+    else showLock('');
   </script>
 </body>
 </html>
